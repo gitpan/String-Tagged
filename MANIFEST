@@ -1,0 +1,14 @@
+Build.PL
+Changes
+lib/String/Tagged.pm
+MANIFEST			This list of files
+t/00use.t
+t/01plain.t
+t/02tags-conststr.t
+t/03tags-iter-limit.t
+t/04tags-appendstr.t
+t/05tags-delete.t
+t/06tags-substr.t
+t/10debugprint.t
+Makefile.PL
+META.yml
