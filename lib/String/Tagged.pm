@@ -10,7 +10,7 @@ use strict;
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 =head1 NAME
 
@@ -76,6 +76,38 @@ different tag values as far as C<iter_tags_nooverlap()> is concerned, even
 though C<get_tag_at()> yields the same value for the C<type> tag at any
 position in the string.
 
+=head1 NAMING
+
+I spent a lot of time considering the name for this module. It seems that a
+number of people across a number of languages all created similar
+functionallity, though named very differently. For the benefit of
+keyword-based search tools and similar, here's a list of some other names this
+sort of object might be known by:
+
+=over 4
+
+=item *
+
+Extents
+
+=item *
+
+Overlays
+
+=item *
+
+Attribute or attributed strings
+
+=item *
+
+Markup
+
+=item *
+
+Out-of-band data
+
+=back
+
 =cut
 
 =head1 CONSTRUCTOR
@@ -106,6 +138,14 @@ sub new
    return $self;
 }
 
+sub _mkextent
+{
+   my $self = shift;
+   my ( $start, $end ) = @_;
+
+   return bless [ $self, $start, $end ], 'String::Tagged::Extent';
+}
+
 =head1 METHODS
 
 =cut
@@ -130,6 +170,18 @@ sub str
 {
    my $self = shift;
    return $self->{str};
+}
+
+=head2 $len = $st->length
+
+Returns the length of the plain string
+
+=cut
+
+sub length
+{
+   my $self = shift;
+   return CORE::length $self->{str};
 }
 
 =head2 $str = $st->substr( $start, $len )
@@ -273,7 +325,7 @@ sub apply_tag
    my $self = shift;
    my ( $start, $len, $name, $value ) = @_;
 
-   my $strlen = length $self->{str};
+   my $strlen = $self->length;
 
    my $flags = 0;
 
@@ -306,6 +358,7 @@ sub _remove_tag
 
    my $have_added = 0;
 
+   # Can't foreach() because we modify $i
    for( my $i = 0; $i < @$tags; $i++ ) {
       my ( $ts, $te, $tn, $tv, $tf ) = @{ $tags->[$i] };
 
@@ -363,12 +416,13 @@ sub delete_tag
    $self->_remove_tag( $start, $len, $name, 0 );
 }
 
-=head2 $st->iter_tags( $callback, %opts )
+=head2 $st->iter_extents( $callback, %opts )
 
 Iterate the tags stored in the string. For each tag, the CODE reference in
-C<$callback> is invoked once.
+C<$callback> is invoked once, being passed an extent object that represents
+the extent of the tag.
 
- $callback->( $start, $length, $tagname, $tagvalue )
+ $callback->( $extent, $tagname, $tagvalue )
 
 Options passed in C<%opts> may include:
 
@@ -392,7 +446,7 @@ string. This option only applies if C<end> is not given.
 
 =cut
 
-sub iter_tags
+sub iter_extents
 {
    my $self = shift;
    my ( $callback, %opts ) = @_;
@@ -402,7 +456,7 @@ sub iter_tags
 
    my $end   = exists $opts{end} ? $opts{end} :
                exists $opts{len} ? $start + $opts{len} :
-                                   length $self->{str};
+                                   $self->length;
 
    my $tags = $self->{tags};
 
@@ -412,28 +466,54 @@ sub iter_tags
       next if $te < $start;
       last if $ts >= $end;
 
-      $callback->( $ts, $te-$ts, $tn, $tv );
+      $callback->( $self->_mkextent( $ts, $te ), $tn, $tv );
    }
 }
 
-=head2 $st->iter_tags_nooverlap( $callback, %opts )
+=head2 $st->iter_tags( $callback, %opts )
+
+Iterate the tags stored in the string. For each tag, the CODE reference in
+C<$callback> is invoked once, being passed the start point and length of the
+tag.
+
+ $callback->( $start, $length, $tagname, $tagvalue )
+
+Options passed in C<%opts> are the same as for C<iter_extents()>.
+
+=cut
+
+sub iter_tags
+{
+   my $self = shift;
+   my ( $callback, %opts ) = @_;
+
+   $self->iter_extents(
+      sub {
+         my ( $e, $tn, $tv ) = @_;
+         $callback->( $e->start, $e->length, $tn, $tv );
+      },
+      %opts
+   );
+}
+
+=head2 $st->iter_extents_nooverlap( $callback, %opts )
 
 Iterate non-overlapping extents of tags stored in the string. The CODE
 reference in C<$callback> is invoked for each extent in the string where no
 tags change. The entire set of tags active in that extent is given to the
 callback.
 
- $callback->( $start, $length, %tags )
+ $callback->( $extent, %tags )
 
 The callback will be invoked over the entire length of the string, including
 any extents with no tags applied.
 
 Options may be passed in C<%opts> to control the range of the string iterated
-over, in the same way as the C<iter_tags()> method.
+over, in the same way as the C<iter_extents()> method.
 
 =cut
 
-sub iter_tags_nooverlap
+sub iter_extents_nooverlap
 {
    my $self = shift;
    my ( $callback, %opts ) = @_;
@@ -443,15 +523,15 @@ sub iter_tags_nooverlap
 
    my $end   = exists $opts{end} ? $opts{end} :
                exists $opts{len} ? $start + $opts{len} :
-                                   length $self->{str};
+                                   $self->length;
 
    my $tags = $self->{tags};
 
    my @active; # ARRAY of [ $ts, $te, $tn, $tv ]
    my $pos = $start;
 
-   for( my $i = 0; $i < @$tags; $i++ ) {
-      my ( $ts, $te, $tn, $tv ) = @{ $tags->[$i] };
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn, $tv ) = @$t;
 
       next if $te < $start;
       last if $ts >= $end;
@@ -462,7 +542,7 @@ sub iter_tags_nooverlap
          my $rangeend = $ts;
          $_->[1] < $rangeend and $rangeend = $_->[1] for @active;
 
-         $callback->( $pos, $rangeend - $pos, %activetags );
+         $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
 
          $pos = $rangeend;
          @active = grep { $_->[1] > $pos } @active;
@@ -477,22 +557,49 @@ sub iter_tags_nooverlap
       my $rangeend = $end;
       $_->[1] < $rangeend and $rangeend = $_->[1] for @active;
 
-      $callback->( $pos, $rangeend - $pos, %activetags );
+      $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
 
       $pos = $rangeend;
       @active = grep { $_->[1] > $pos } @active;
    }
 }
 
+=head2 $st->iter_tags_nooverlap( $callback, %opts )
+
+Iterate extents of the string using C<iter_extents_nooverlap()>, but passing
+the start and length of each extent to the callback instead of the extent
+object.
+
+ $callback->( $start, $length, %tags )
+
+Options may be passed in C<%opts> to control the range of the string iterated
+over, in the same way as the C<iter_extents()> method.
+
+=cut
+
+sub iter_tags_nooverlap
+{
+   my $self = shift;
+   my ( $callback, %opts ) = @_;
+
+   $self->iter_extents_nooverlap(
+      sub {
+         my ( $e, %tags ) = @_;
+         $callback->( $e->start, $e->length, %tags );
+      },
+      %opts
+   );
+}
+
 =head2 $st->iter_substr_nooverlap( $callback, %opts )
 
-Iterate extents of the string in the same way as C<iter_tags_nooverlap()>,
-but passing the substring of data instead of the start position and length.
+Iterate extents of the string using C<iter_extents_nooverlap()>, but passing
+the substring of data instead of the extent object.
 
  $callback->( $substr, %tags )
 
 Options may be passed in C<%opts> to control the range of the string iterated
-over, in the same way as the C<iter_tags()> method.
+over, in the same way as the C<iter_extents()> method.
 
 =cut
 
@@ -501,10 +608,10 @@ sub iter_substr_nooverlap
    my $self = shift;
    my ( $callback, %opts ) = @_;
 
-   $self->iter_tags_nooverlap(
+   $self->iter_extents_nooverlap(
       sub {
-         my ( $start, $len, %tags ) = @_;
-         $callback->( $self->substr( $start, $len ), %tags );
+         my ( $e, %tags ) = @_;
+         $callback->( $e->substr, %tags );
       },
       %opts,
    );
@@ -546,8 +653,8 @@ sub get_tags_at
    my %tags;
 
    # TODO: turn this into a binary search
-   for( my $i = 0; $i < @$tags; $i++ ) {
-      my ( $ts, $te, $tn, $tv ) = @{ $tags->[$i] };
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn, $tv ) = @$t;
 
       next if $pos < $ts;
       last if $pos >= $te;
@@ -574,8 +681,8 @@ sub get_tag_at
 
    my $value;
 
-   for( my $i = 0; $i < @$tags; $i++ ) {
-      my ( $ts, $te, $tn, $tv ) = @{ $tags->[$i] };
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn, $tv ) = @$t;
 
       next if $pos < $ts;
       last if $pos >= $te;
@@ -584,6 +691,78 @@ sub get_tag_at
    }
 
    return $value;
+}
+
+=head2 $extent = $st->get_tag_extent( $pos, $name )
+
+If the named tag applies to the given position, returns the extent of the tag
+at that position. If it does not, C<undef> is returned.
+
+=cut
+
+sub get_tag_extent
+{
+   my $self = shift;
+   my ( $pos, $name ) = @_;
+
+   my $tags = $self->{tags};
+
+   my ( $start, $end );
+
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn ) = @$t;
+
+      next if $pos < $ts;
+      last if $pos >= $te;
+
+      next unless $tn eq $name;
+
+      $start = $ts;
+      $end   = $te;
+   }
+
+   if( defined $start ) {
+      return $self->_mkextent( $start, $end );
+   }
+   else {
+      return undef;
+   }
+}
+
+=head2 $extent = $st->get_tag_missing_extent( $pos, $name )
+
+If the named tag does not apply at the given position, returns the extent of
+the string around that position that does not have the tag. If it does exist,
+C<undef> is returned.
+
+=cut
+
+sub get_tag_missing_extent
+{
+   my $self = shift;
+   my ( $pos, $name ) = @_;
+
+   my $tags = $self->{tags};
+
+   my $start = 0;
+
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn ) = @$t;
+
+      next unless $tn eq $name;
+
+      if( $ts <= $pos and $te > $pos ) {
+         return undef;
+      }
+
+      if( $ts > $pos ) {
+         return $self->_mkextent( $start, $ts );
+      }
+
+      $start = $te;
+   }
+
+   return $self->_mkextent( $start, $self->length );
 }
 
 =head2 $st->set_substr( $start, $len, $newstr )
@@ -618,7 +797,7 @@ sub set_substr
    CORE::substr( $self->{str}, $start, $len ) = $new;
 
    my $oldend = $start + $len;
-   my $newend = $start + length $new;
+   my $newend = $start + CORE::length( $new );
 
    my $delta = $newend - $oldend;
    # Positions after $oldend have now moved up $delta places
@@ -736,7 +915,7 @@ sub append
    my $self = shift;
    my ( $new ) = @_;
 
-   $self->insert( length $self->{str}, $new );
+   $self->insert( $self->length, $new );
 }
 
 =head2 $st->append_tagged( $newstr, %tags )
@@ -751,8 +930,8 @@ sub append_tagged
    my $self = shift;
    my ( $new, %tags ) = @_;
 
-   my $start = length $self->str;
-   my $len   = length $new;
+   my $start = $self->length;
+   my $len   = CORE::length( $new );
 
    $self->append( $new );
    $self->apply_tag( $start, $len, $_, $tags{$_} ) for keys %tags;
@@ -784,7 +963,7 @@ sub debug_sprintf
    my $self = shift;
 
    my $str = $self->str;
-   my $len = length $str;
+   my $len = CORE::length( $str );
 
    my $maxnamelen = 0;
 
@@ -792,7 +971,7 @@ sub debug_sprintf
 
    $self->iter_tags( sub {
       my ( undef, undef, $name, undef ) = @_;
-      length $name > $maxnamelen and $maxnamelen = length $name;
+      CORE::length( $name ) > $maxnamelen and $maxnamelen = CORE::length( $name );
    } );
 
    foreach my $t ( @{ $self->{tags} } ) {
@@ -824,6 +1003,79 @@ sub debug_sprintf
    return $ret;
 }
 
+=head1 Extent Objects
+
+These objects represent a range of characters within the containing
+C<String::Tagged> object. The range they represent is fixed at the time of
+creation. If the containing string is modified by a call to C<set_substr()>
+then the effect on the extent object is not defined. These objects should be
+considered as relatively short-lived - used briefly for the purpose of
+querying the result of an operation, then discarded soon after.
+
+=cut
+
+package String::Tagged::Extent;
+
+=head2 $extent->string
+
+Returns the containing C<String::Tagged> object.
+
+=cut
+
+sub string
+{
+   shift->[0]
+}
+
+=head2 $extent->start
+
+Returns the start index of the extent. This is the index of the first
+character within the extent.
+
+=cut
+
+sub start
+{
+   shift->[1]
+}
+
+=head2 $extent->end
+
+Returns the end index of the extent. This is the index of the first character
+beyond the end of the extent.
+
+=cut
+
+sub end
+{
+   shift->[2]
+}
+
+=head2 $extent->length
+
+Returns the number of characters within the extent.
+
+=cut
+
+sub length
+{
+   my $self = shift;
+   $self->end - $self->start;
+}
+
+=head2 $extent->substr
+
+Returns the substring of the underlying plain string buffer contained by the
+extent.
+
+=cut
+
+sub substr
+{
+   my $self = shift;
+   $self->string->substr( $self->start, $self->length );
+}
+
 # Keep perl happy; keep Britain tidy
 1;
 
@@ -850,12 +1102,6 @@ happen to be equal. Consider the case in the description. Maybe a method like:
 
 To merge two neighbouring tags of the same name if the C<$cmp_func> returns
 true.
-
-=item *
-
-Consider if an C<String::Tagged::Extent> object needs to be created. Could
-compress both of the C<iter_*_nonoverlap()> methods into one, if it was passed
-an object which had C<start()>, C<end()>, C<len()> and C<substr()> methods.
 
 =back
 

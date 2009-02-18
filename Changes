@@ -1,4 +1,8 @@
 Revision history for String-Tagged
 
+0.02    CHANGES:
+         * New 'extent' API - methods to return extent objects
+         * Added ->get_tag_extent() and ->get_tag_missing_extent()
+
 0.01    First version, released on an unsuspecting world.
 

@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 6;
+use Test::More tests => 8;
 
 use String::Tagged;
 
@@ -10,10 +10,14 @@ my $str = String::Tagged->new( "Hello, world" );
 
 is( $str->str, "Hello, world", 'Plain string accessor' );
 
+is( $str->length, 12, 'Plain string length' );
+
 is( $str->substr( 0, 5 ), "Hello", 'Plain substring accessor' );
 
 $str->set_substr( 7, 5, "planet" );
 is( $str->str, "Hello, planet", "After set_substr" );
+
+is( $str->length, 13, 'String length after set_substr' );
 
 $str->insert( 7, "lovely " );
 is( $str->str, "Hello, lovely planet", 'After insert' );

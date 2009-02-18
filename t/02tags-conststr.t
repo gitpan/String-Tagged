@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 15;
+use Test::More tests => 25;
 
 use String::Tagged;
 
@@ -22,6 +22,20 @@ is_deeply( \@tags,
            ],
            'tags list after apply message' );
 
+my @extents;
+$str->iter_extents( sub { push @extents, $_[0] } );
+
+is( scalar @extents, 1, 'one extent from iter_extents' );
+
+my $e = $extents[0];
+can_ok( $e, qw( string start length end substr ) );
+
+is( $e->string, $str, '$e->string' );
+is( $e->start,   0, '$e->start' );
+is( $e->length, 12, '$e->length' );
+is( $e->end,    12, '$e->end' );
+is( $e->substr, "Hello, world", '$e->substr' );
+
 is_deeply( $str->get_tags_at( 0 ), 
            { message => 1 },
            'tags at pos 0' );
@@ -40,6 +54,14 @@ is_deeply( \@tags,
               [ 6, 1,  space => 1 ],
            ],
            'tags list after apply space' );
+
+undef @extents;
+$str->iter_extents( sub { push @extents, $_[0] } );
+
+is( scalar @extents, 2, 'two extent from iter_extents' );
+
+is( $extents[0]->substr, "Hello, world", '$e[0]->substr' );
+is( $extents[1]->substr, " ", '$e[1]->substr' );
 
 sub fetch_tags
 {

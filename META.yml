@@ -1,6 +1,6 @@
 ---
 name: String-Tagged
-version: 0.01
+version: 0.02
 author:
   - 'Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>'
 abstract: string buffers with value tags on extents
@@ -12,7 +12,9 @@ build_requires:
 provides:
   String::Tagged:
     file: lib/String/Tagged.pm
-    version: 0.01
+    version: 0.02
+  String::Tagged::Extent:
+    file: lib/String/Tagged.pm
 generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
