@@ -6,11 +6,12 @@
 package String::Tagged;
 
 use strict;
+use warnings;
 
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 =head1 NAME
 
@@ -537,10 +538,19 @@ sub iter_extents_nooverlap
       last if $ts >= $end;
 
       while( $pos < $ts ) {
-         my %activetags = map { $_->[2] => $_->[3] } @active;
-
+         my %activetags;
+         my %tagends;
          my $rangeend = $ts;
-         $_->[1] < $rangeend and $rangeend = $_->[1] for @active;
+
+         foreach ( @active ) {
+            my ( undef, $e, $n, $v ) = @$_;
+
+            $e < $rangeend and $rangeend = $e;
+            next if $tagends{$n} and $tagends{$n} < $e;
+
+            $activetags{$n} = $v;
+            $tagends{$n} = $e;
+         }
 
          $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
 
@@ -552,10 +562,19 @@ sub iter_extents_nooverlap
    }
 
    while( $pos < $end ) {
-      my %activetags = map { $_->[2] => $_->[3] } @active;
-
+      my %activetags;
+      my %tagends;
       my $rangeend = $end;
-      $_->[1] < $rangeend and $rangeend = $_->[1] for @active;
+
+      foreach ( @active ) {
+         my ( undef, $e, $n, $v ) = @$_;
+
+         $e < $rangeend and $rangeend = $e;
+         next if $tagends{$n} and $tagends{$n} < $e;
+
+         $activetags{$n} = $v;
+         $tagends{$n} = $e;
+      }
 
       $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
 
@@ -1014,7 +1033,8 @@ querying the result of an operation, then discarded soon after.
 
 =cut
 
-package String::Tagged::Extent;
+package # hide from CPAN indexer
+  String::Tagged::Extent;
 
 =head2 $extent->string
 

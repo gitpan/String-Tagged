@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 25;
+use Test::More tests => 26;
 
 use String::Tagged;
 
@@ -133,6 +133,21 @@ is_deeply( \@tags,
               [ 6, 8, size => 1 ],
            ],
            'tags list with overridden tag' );
+
+$str->apply_tag( 0, 1, size => 3 );
+$str->apply_tag( 3, 1, size => 4 );
+
+undef @tags;
+$str->iter_tags_nooverlap( \&fetch_tags );
+is_deeply( \@tags, 
+           [
+              [ 0, 1, size => 3 ],
+              [ 1, 2, size => 1 ],
+              [ 3, 1, size => 4 ],
+              [ 4, 2, size => 2 ],
+              [ 6, 8, size => 1 ],
+           ],
+           'tags list with overridden tag at BOS' );
 
 $str = String::Tagged->new( "BEGIN middle END" );
 
