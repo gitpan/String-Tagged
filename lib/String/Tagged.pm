@@ -11,7 +11,7 @@ use warnings;
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 NAME
 
@@ -417,6 +417,70 @@ sub delete_tag
    $self->_remove_tag( $start, $len, $name, 0 );
 }
 
+=head2 $st->merge_tags( $eqsub )
+
+Merge neighbouring or overlapping tags of the same name and equal values.
+
+For each pair of tags of the same name that apply on neighbouring or
+overlapping extents, the C<$eqsub> callback is called, as
+
+  $equal = $eqsub->( $name, $value_a, $value_b )
+
+If this function returns true then the tags are merged.
+
+The equallity test function is free to perform any comparison of the values
+that may be relevant to the application; for example it may deeply compare
+referred structures and check for equivalence in some application-defined
+manner. In this case, the first tag of a pair is retained, the second is
+deleted. This may be relevant if the tag value is a reference to some object.
+
+=cut
+
+sub merge_tags
+{
+   my $self = shift;
+   my ( $eqsub ) = @_;
+
+   my $tags = $self->{tags};
+
+   # Can't foreach() because we modify @$tags
+   OUTER: for( my $i = 0; $i < @$tags; $i++ ) {
+      my ( $ts, $te, $tn, $tv, $tf ) = @{ $tags->[$i] };
+
+      for( my $j = $i+1; $j < @$tags; $j++ ) {
+         my ( $t2s, $t2e, $t2n, $t2v, $t2f ) = @{ $tags->[$j] };
+
+         last if $t2s > $te;
+         next unless $t2s <= $te;
+         next unless $t2n eq $tn;
+
+         last unless $eqsub->( $tn, $tv, $t2v );
+
+         # Need to delete the tag at $j, extend the end of the tag at $i, and
+         # possibly move $i later
+         splice @$tags, $j, 1, ();
+         $j--;
+
+         $te = $tags->[$i][1] = $t2e;
+
+         $tags->[$i][4] |= FLAG_ANCHOR_AFTER if $t2f & FLAG_ANCHOR_AFTER;
+
+         local $a = $tags->[$i];
+
+         if( local $b = $tags->[$i+1] and _cmp_tags() > 0 ) {
+            my $newpos = $i+1;
+            while( local $b = $tags->[$newpos ] and _cmp_tags() <= 0 ) {
+               $newpos++;
+            }
+
+            splice @$tags, $newpos, 0, splice @$tags, $i, 1, ();
+
+            redo OUTER;
+         }
+      }
+   }
+}
+
 =head2 $st->iter_extents( $callback, %opts )
 
 Iterate the tags stored in the string. For each tag, the CODE reference in
@@ -811,7 +875,10 @@ sub set_substr
    my $self = shift;
    my ( $start, $len, $new ) = @_;
 
-   # TODO: bounds limit $start/$end
+   my $limit = $self->length;
+
+   $start = $limit if $start > $limit;
+   $len = ( $limit - $start ) if $len > ( $limit - $start );
 
    CORE::substr( $self->{str}, $start, $len ) = $new;
 
@@ -1107,24 +1174,12 @@ __END__
 
 =item *
 
-There are likely variations on the rules for C<set_substr()>that could equally
-apply to some uses of tagged strings. Consider whether the behaviour of
-modification is chosen per-method, per-tag, or per-string.
-
-=item *
-
-Ways in which the application might want to merge neighbouring tag values that
-happen to be equal. Consider the case in the description. Maybe a method like:
-
- $st->merge_tags( $cmp_func )
-
-  $equal = $cmp_func->( $name, $value_a, $value_b )
-
-To merge two neighbouring tags of the same name if the C<$cmp_func> returns
-true.
+There are likely variations on the rules for C<set_substr()> that could
+equally apply to some uses of tagged strings. Consider whether the behaviour
+of modification is chosen per-method, per-tag, or per-string.
 
 =back
 
 =head1 AUTHOR
 
-Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>
+Paul Evans <leonerd@leonerd.org.uk>
