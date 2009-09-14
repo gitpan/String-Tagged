@@ -1,5 +1,10 @@
 Revision history for String-Tagged
 
+0.05    CHANGES:
+         * Allow use of ->new() as a clone constructor
+         * Copy tags if ->set_substr/insert/append are passed a String::Tagged
+         * Define . and .= operator overloads
+
 0.04    CHANGES:
          * Added ->merge_tags() method
          * Created terminal colours/attributes example

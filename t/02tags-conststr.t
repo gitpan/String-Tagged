@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 26;
+use Test::More tests => 29;
 
 use String::Tagged;
 
@@ -155,6 +155,18 @@ $str->apply_tag( -1, -1, everywhere => 1 );
 $str->apply_tag( -1,  5, begin => 1 );
 $str->apply_tag( 13, -1, end => 1);
 
+undef @extents;
+$str->iter_extents( sub {
+   my ( $e ) = @_;
+   push @extents, [ $e->substr, $e->start, $e->end, $e->anchor_before?1:0, $e->anchor_after?1:0 ];
+} );
+
+is_deeply( \@extents,
+   [ [ "BEGIN",             0,  5, 1, 0 ],
+     [ "BEGIN middle END",  0, 16, 1, 1 ],
+     [              "END", 13, 16, 0, 1 ] ],
+   'extent objects contain start/end/anchor_before/anchor_after' );
+
 is_deeply( $str->get_tags_at( 0 ), 
            { everywhere => 1, begin => 1 },
            'tags at pos 0 of edge-anchored' );
@@ -170,3 +182,19 @@ is_deeply( \@tags,
               [ 13, 3, end => 1, everywhere => 1 ],
            ],
            'tags list with edge-anchored tags' );
+
+my $str2 = String::Tagged->new( $str );
+
+is( $str2->str, "BEGIN middle END", 'constructor clones string' );
+
+undef @extents;
+$str2->iter_extents( sub {
+   my ( $e ) = @_;
+   push @extents, [ $e->substr, $e->start, $e->end, $e->anchor_before?1:0, $e->anchor_after?1:0 ];
+} );
+
+is_deeply( \@extents,
+   [ [ "BEGIN",             0,  5, 1, 0 ],
+     [ "BEGIN middle END",  0, 16, 1, 1 ],
+     [              "END", 13, 16, 0, 1 ] ],
+   'constructor clones tags' );

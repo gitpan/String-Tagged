@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 17;
+use Test::More tests => 21;
 
 use String::Tagged;
 
@@ -21,12 +21,16 @@ is( $e->start,   0, '$e->start' );
 is( $e->end,    14, '$e->end' );
 is( $e->length, 14, '$e->length' );
 is( $e->substr, "some BIG words", '$e->substr' );
+ok( $e->anchor_before, '$e->anchor_before' );
+ok( $e->anchor_after,  '$e->anchor_after' );
 
 $e = $str->get_tag_extent( 7, 'big' );
 
 is( $e->start, 5, '$e->start' );
 is( $e->end,   8, '$e->end' );
 is( $e->substr, "BIG", '$e->substr of 7/big' );
+ok( !$e->anchor_before, '$e->anchor_before' );
+ok( !$e->anchor_after,  '$e->anchor_after' );
 
 $e = $str->get_tag_extent( 3, 'big' );
 

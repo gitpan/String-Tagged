@@ -18,4 +18,6 @@ t/07tags-range.t
 t/10debugprint.t
 t/20merge-tags.t
 t/21merge-tags-anchors.t
+t/30appendinsert.t
+t/40operators.t
 t/99pod.t

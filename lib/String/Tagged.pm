@@ -11,7 +11,7 @@ use warnings;
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 =head1 NAME
 
@@ -121,20 +121,32 @@ Returns a new instance of a C<String::Tagged> object. It will contain no tags.
 If the optional C<$str> argument is supplied, the string buffer will be
 initialised from this value.
 
+If C<$str> is a C<String::Tagged> object then its tags will be copied too;
+i.e. the constructor also works as a clone method.
+
 =cut
 
 sub new
 {
    my $class = shift;
-   my ( $str, %opts ) = @_;
+   my ( $str ) = @_;
 
    $str = "" unless defined $str;
 
    my $self = bless {
-      opts => \%opts,
-      str  => $str,
+      str  => "$str",
       tags => [],
    }, $class;
+
+   if( eval { $str->isa( __PACKAGE__ ) } ) {
+      $str->iter_extents( sub {
+         my ( $e, $tn, $tv ) = @_;
+         $self->apply_tag(
+            $e->anchor_before ? -1 : $e->start,
+            $e->anchor_after  ? -1 : $e->length,
+            $tn, $tv );
+      } );
+   }
 
    return $self;
 }
@@ -142,9 +154,11 @@ sub new
 sub _mkextent
 {
    my $self = shift;
-   my ( $start, $end ) = @_;
+   my ( $start, $end, $flags ) = @_;
 
-   return bless [ $self, $start, $end ], 'String::Tagged::Extent';
+   $flags &= (FLAG_ANCHOR_BEFORE|FLAG_ANCHOR_AFTER);
+
+   return bless [ $self, $start, $end, $flags ], 'String::Tagged::Extent';
 }
 
 =head1 METHODS
@@ -175,7 +189,10 @@ sub str
 
 =head2 $len = $st->length
 
-Returns the length of the plain string
+=head2 $len = length( $st )
+
+Returns the length of the plain string. Because stringification works on this
+object class, the normal core C<length()> function works correctly on it.
 
 =cut
 
@@ -485,7 +502,8 @@ sub merge_tags
 
 Iterate the tags stored in the string. For each tag, the CODE reference in
 C<$callback> is invoked once, being passed an extent object that represents
-the extent of the tag.
+the extent of the tag. These extents will have the C<anchor_before> and
+C<anchor_after> flags defined.
 
  $callback->( $extent, $tagname, $tagvalue )
 
@@ -526,12 +544,12 @@ sub iter_extents
    my $tags = $self->{tags};
 
    foreach my $t ( @$tags ) {
-      my ( $ts, $te, $tn, $tv ) = @$t;
+      my ( $ts, $te, $tn, $tv, $tf ) = @$t;
 
       next if $te < $start;
       last if $ts >= $end;
 
-      $callback->( $self->_mkextent( $ts, $te ), $tn, $tv );
+      $callback->( $self->_mkextent( $ts, $te, $tf ), $tn, $tv );
    }
 }
 
@@ -566,7 +584,8 @@ sub iter_tags
 Iterate non-overlapping extents of tags stored in the string. The CODE
 reference in C<$callback> is invoked for each extent in the string where no
 tags change. The entire set of tags active in that extent is given to the
-callback.
+callback. Because the extent covers possibly-multiple tags, it will not define
+the C<anchor_before> and C<anchor_after> flags.
 
  $callback->( $extent, %tags )
 
@@ -616,7 +635,7 @@ sub iter_extents_nooverlap
             $tagends{$n} = $e;
          }
 
-         $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
+         $callback->( $self->_mkextent( $pos, $rangeend, 0 ), %activetags );
 
          $pos = $rangeend;
          @active = grep { $_->[1] > $pos } @active;
@@ -640,7 +659,7 @@ sub iter_extents_nooverlap
          $tagends{$n} = $e;
       }
 
-      $callback->( $self->_mkextent( $pos, $rangeend ), %activetags );
+      $callback->( $self->_mkextent( $pos, $rangeend, 0 ), %activetags );
 
       $pos = $rangeend;
       @active = grep { $_->[1] > $pos } @active;
@@ -779,7 +798,8 @@ sub get_tag_at
 =head2 $extent = $st->get_tag_extent( $pos, $name )
 
 If the named tag applies to the given position, returns the extent of the tag
-at that position. If it does not, C<undef> is returned.
+at that position. If it does not, C<undef> is returned. If an extent is
+returned it will define the C<anchor_before> and C<anchor_after> flags.
 
 =cut
 
@@ -790,10 +810,10 @@ sub get_tag_extent
 
    my $tags = $self->{tags};
 
-   my ( $start, $end );
+   my ( $start, $end, $flags );
 
    foreach my $t ( @$tags ) {
-      my ( $ts, $te, $tn ) = @$t;
+      my ( $ts, $te, $tn, undef, $tf ) = @$t;
 
       next if $pos < $ts;
       last if $pos >= $te;
@@ -802,10 +822,11 @@ sub get_tag_extent
 
       $start = $ts;
       $end   = $te;
+      $flags = $tf;
    }
 
    if( defined $start ) {
-      return $self->_mkextent( $start, $end );
+      return $self->_mkextent( $start, $end, $flags );
    }
    else {
       return undef;
@@ -816,7 +837,9 @@ sub get_tag_extent
 
 If the named tag does not apply at the given position, returns the extent of
 the string around that position that does not have the tag. If it does exist,
-C<undef> is returned.
+C<undef> is returned. If an extent is returned it will not define the
+C<anchor_before> and C<anchor_after> flags, as these do not make sense for the
+range in which a tag is absent.
 
 =cut
 
@@ -839,13 +862,13 @@ sub get_tag_missing_extent
       }
 
       if( $ts > $pos ) {
-         return $self->_mkextent( $start, $ts );
+         return $self->_mkextent( $start, $ts, 0 );
       }
 
       $start = $te;
    }
 
-   return $self->_mkextent( $start, $self->length );
+   return $self->_mkextent( $start, $self->length, 0 );
 }
 
 =head2 $st->set_substr( $start, $len, $newstr )
@@ -867,6 +890,11 @@ suitably adjusted.
 Tags that span just the start or end of the extent, but not both, are
 truncated, so as to remove the part of the tag applied on the modified extent
 but preserving that applied outside.
+
+If C<$newstr> is a C<String::Tagged> object, then its tags will be applied to
+C<$st> as appropriate. Edge-anchored tags in C<$newstr> will not be extended
+through C<$st>, though they will apply as edge-anchored if they now sit at the
+edge of the new string.
 
 =cut
 
@@ -973,13 +1001,32 @@ sub set_substr
       }
    }
 
+   if( eval { $new->isa( __PACKAGE__ ) } ) {
+      my $atstart = $start == 0;
+      my $atend   = $newend == $self->length;
+
+      $new->iter_extents( sub {
+         my ( $e, $tn, $tv ) = @_;
+         $self->apply_tag(
+            ( $atstart && $e->anchor_before ) ? -1 : $start + $e->start,
+            ( $atend   && $e->anchor_after  ) ? -1 : $e->length,
+            $tn, $tv );
+      } );
+   }
+
    $self->_assert_sorted;
+
+   return $self;
 }
 
 =head2 $st->insert( $start, $newstr )
 
 Insert the given string at the given position. A shortcut around
 C<set_substr()>.
+
+If C<$newstr> is a C<String::Tagged> object, then its tags will be applied to
+C<$st> as appropriate. If C<$start> is 0, any before-anchored tags in will
+become before-anchored in C<$st>.
 
 =cut
 
@@ -992,9 +1039,17 @@ sub insert
 
 =head2 $st->append( $newstr )
 
+=head2 $st .= $newstr
+
 Append to the underlying plain string. A shortcut around C<set_substr()>.
 
+If C<$newstr> is a C<String::Tagged> object, then its tags will be applied to
+C<$st> as appropriate. Any after-anchored tags in will become after-anchored
+in C<$st>.
+
 =cut
+
+use overload '.=' => 'append';
 
 sub append
 {
@@ -1021,6 +1076,29 @@ sub append_tagged
 
    $self->append( $new );
    $self->apply_tag( $start, $len, $_, $tags{$_} ) for keys %tags;
+}
+
+=head2 $ret = $st->concat( $other )
+
+=head2 $ret = $st . $other
+
+Returns a new C<String::Tagged> containing the two strings concatenated
+together, preserving any tags present. This method overloads normal string
+concatenation operator, so expressions involving C<String::Tagged> values
+retain their tags.
+
+=cut
+
+use overload '.' => 'concat';
+
+sub concat
+{
+   my $self = shift;
+   my ( $other, $swap ) = @_;
+
+   my $ret = __PACKAGE__->new( $self );
+   return $ret->insert( 0, $other ) if $swap;
+   return $ret->append( $other );
 }
 
 =head2 $ret = $st->debug_sprintf
@@ -1136,6 +1214,30 @@ beyond the end of the extent.
 sub end
 {
    shift->[2]
+}
+
+=head2 $extent->anchor_before
+
+True if this extent begins "before" the start of the string. Only certain
+methods return extents with this flag defined.
+
+=cut
+
+sub anchor_before
+{
+   shift->[3] & String::Tagged::FLAG_ANCHOR_BEFORE;
+}
+
+=head2 $extent->anchor_after
+
+True if this extent ends "after" the end of the string. Only certain methods
+return extents with this flag defined.
+
+=cut
+
+sub anchor_after
+{
+   shift->[3] & String::Tagged::FLAG_ANCHOR_AFTER;
 }
 
 =head2 $extent->length

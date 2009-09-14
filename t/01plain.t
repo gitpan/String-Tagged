@@ -11,6 +11,7 @@ my $str = String::Tagged->new( "Hello, world" );
 is( $str->str, "Hello, world", 'Plain string accessor' );
 
 is( $str->length, 12, 'Plain string length' );
+is( length($str), 12, 'length() str also works' );
 
 is( $str->substr( 0, 5 ), "Hello", 'Plain substring accessor' );
 
@@ -24,7 +25,3 @@ is( $str->str, "Hello, lovely planet", 'After insert' );
 
 $str->append( "!" );
 is( $str->str, "Hello, lovely planet!", 'After append' );
-
-is( "message is $str",
-    "message is Hello, lovely planet!",
-    'STRINGify operator' );

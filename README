@@ -83,6 +83,9 @@ CONSTRUCTOR
     tags. If the optional $str argument is supplied, the string buffer will
     be initialised from this value.
 
+    If $str is a "String::Tagged" object then its tags will be copied too;
+    i.e. the constructor also works as a clone method.
+
 METHODS
   $str = $st->str
   "$st"
@@ -95,7 +98,10 @@ METHODS
      print "My message is $message\n";
 
   $len = $st->length
-    Returns the length of the plain string
+  $len = length( $st )
+    Returns the length of the plain string. Because stringification works on
+    this object class, the normal core "length()" function works correctly
+    on it.
 
   $str = $st->substr( $start, $len )
     Returns a substring of the plain string contained within the object.
@@ -144,7 +150,8 @@ METHODS
   $st->iter_extents( $callback, %opts )
     Iterate the tags stored in the string. For each tag, the CODE reference
     in $callback is invoked once, being passed an extent object that
-    represents the extent of the tag.
+    represents the extent of the tag. These extents will have the
+    "anchor_before" and "anchor_after" flags defined.
 
      $callback->( $extent, $tagname, $tagvalue )
 
@@ -174,7 +181,8 @@ METHODS
     Iterate non-overlapping extents of tags stored in the string. The CODE
     reference in $callback is invoked for each extent in the string where no
     tags change. The entire set of tags active in that extent is given to
-    the callback.
+    the callback. Because the extent covers possibly-multiple tags, it will
+    not define the "anchor_before" and "anchor_after" flags.
 
      $callback->( $extent, %tags )
 
@@ -216,12 +224,16 @@ METHODS
 
   $extent = $st->get_tag_extent( $pos, $name )
     If the named tag applies to the given position, returns the extent of
-    the tag at that position. If it does not, "undef" is returned.
+    the tag at that position. If it does not, "undef" is returned. If an
+    extent is returned it will define the "anchor_before" and "anchor_after"
+    flags.
 
   $extent = $st->get_tag_missing_extent( $pos, $name )
     If the named tag does not apply at the given position, returns the
     extent of the string around that position that does not have the tag. If
-    it does exist, "undef" is returned.
+    it does exist, "undef" is returned. If an extent is returned it will not
+    define the "anchor_before" and "anchor_after" flags, as these do not
+    make sense for the range in which a tag is absent.
 
   $st->set_substr( $start, $len, $newstr )
     Modifies a extent of the underlying plain string to that given. The
@@ -242,16 +254,37 @@ METHODS
     truncated, so as to remove the part of the tag applied on the modified
     extent but preserving that applied outside.
 
+    If $newstr is a "String::Tagged" object, then its tags will be applied
+    to $st as appropriate. Edge-anchored tags in $newstr will not be
+    extended through $st, though they will apply as edge-anchored if they
+    now sit at the edge of the new string.
+
   $st->insert( $start, $newstr )
     Insert the given string at the given position. A shortcut around
     "set_substr()".
 
+    If $newstr is a "String::Tagged" object, then its tags will be applied
+    to $st as appropriate. If $start is 0, any before-anchored tags in will
+    become before-anchored in $st.
+
   $st->append( $newstr )
+  $st .= $newstr
     Append to the underlying plain string. A shortcut around "set_substr()".
+
+    If $newstr is a "String::Tagged" object, then its tags will be applied
+    to $st as appropriate. Any after-anchored tags in will become
+    after-anchored in $st.
 
   $st->append_tagged( $newstr, %tags )
     Append to the underlying plain string, and apply the given tags to the
     newly-inserted extent.
+
+  $ret = $st->concat( $other )
+  $ret = $st . $other
+    Returns a new "String::Tagged" containing the two strings concatenated
+    together, preserving any tags present. This method overloads normal
+    string concatenation operator, so expressions involving "String::Tagged"
+    values retain their tags.
 
   $ret = $st->debug_sprintf
     Returns a representation of the string data and all the tags, suitable
@@ -290,6 +323,14 @@ Extent Objects
   $extent->end
     Returns the end index of the extent. This is the index of the first
     character beyond the end of the extent.
+
+  $extent->anchor_before
+    True if this extent begins "before" the start of the string. Only
+    certain methods return extents with this flag defined.
+
+  $extent->anchor_after
+    True if this extent ends "after" the end of the string. Only certain
+    methods return extents with this flag defined.
 
   $extent->length
     Returns the number of characters within the extent.
