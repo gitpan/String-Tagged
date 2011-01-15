@@ -3,6 +3,7 @@
 use strict;
 
 use Test::More tests => 21;
+use Test::Identity;
 
 use String::Tagged;
 
@@ -15,7 +16,7 @@ my $e = $str->get_tag_extent( 7, 'everywhere' );
 
 ok( defined $e, 'Got an extent' );
 
-is( $e->string, $str, '$e->str' );
+identical( $e->string, $str, '$e->str' );
 
 is( $e->start,   0, '$e->start' );
 is( $e->end,    14, '$e->end' );

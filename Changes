@@ -1,5 +1,9 @@
 Revision history for String-Tagged
 
+0.06    CHANGES:
+         * Use Test::Identity to work around recent behavioural change in
+           Test::More when comparing object references
+
 0.05    CHANGES:
          * Allow use of ->new() as a clone constructor
          * Copy tags if ->set_substr/insert/append are passed a String::Tagged

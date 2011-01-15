@@ -3,6 +3,7 @@
 use strict;
 
 use Test::More tests => 29;
+use Test::Identity;
 
 use String::Tagged;
 
@@ -30,7 +31,7 @@ is( scalar @extents, 1, 'one extent from iter_extents' );
 my $e = $extents[0];
 can_ok( $e, qw( string start length end substr ) );
 
-is( $e->string, $str, '$e->string' );
+identical( $e->string, $str, '$e->string' );
 is( $e->start,   0, '$e->start' );
 is( $e->length, 12, '$e->length' );
 is( $e->end,    12, '$e->end' );

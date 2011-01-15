@@ -1,7 +1,7 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2008,2009 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2008-2010 -- leonerd@leonerd.org.uk
 
 package String::Tagged;
 
@@ -11,7 +11,7 @@ use warnings;
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 =head1 NAME
 
