@@ -32,8 +32,8 @@ DESCRIPTION
 
     Tags may be arbitrarily overlapped. Any given offset within the string
     has in effect, a set of uniquely named tags. Tags of different names are
-    independent. For tags of the same name, only the the latest, shortest
-    tag takes effect.
+    independent. For tags of the same name, only the latest, shortest tag
+    takes effect.
 
     For example, consider a string with three tags represented here:
 
@@ -56,9 +56,10 @@ DESCRIPTION
               [--------]  type => "message"
 
     This string contains two tags. "String::Tagged" will treat this as two
-    different tag values as far as "iter_tags_nooverlap()" is concerned,
-    even though "get_tag_at()" yields the same value for the "type" tag at
-    any position in the string.
+    different tag values as far as "iter_tags_nooverlap" is concerned, even
+    though "get_tag_at" yields the same value for the "type" tag at any
+    position in the string. The "merge_tags" method may be used to merge tag
+    extents of tags that should be considered as equal.
 
 NAMING
     I spent a lot of time considering the name for this module. It seems
@@ -86,6 +87,11 @@ CONSTRUCTOR
     If $str is a "String::Tagged" object then its tags will be copied too;
     i.e. the constructor also works as a clone method.
 
+  $st = String::Tagged->new_tagged( $str, %tags )
+    Shortcut for creating a new "String::Tagged" object with the given tags
+    applied to the entire length. The tags will not be anchored at either
+    end.
+
 METHODS
   $str = $st->str
   "$st"
@@ -100,8 +106,8 @@ METHODS
   $len = $st->length
   $len = length( $st )
     Returns the length of the plain string. Because stringification works on
-    this object class, the normal core "length()" function works correctly
-    on it.
+    this object class, the normal core "length" function works correctly on
+    it.
 
   $str = $st->substr( $start, $len )
     Returns a substring of the plain string contained within the object.
@@ -114,8 +120,8 @@ METHODS
     If $start is given as -1, the tag will be considered to start "before"
     the actual string. If $len is given as -1, the tag will be considered to
     end "after" end of the actual string. These special limits are used by
-    "set_substr()" when deciding whether to move a tag boundary. The start
-    of any tag that starts "before" the string is never moved, even if more
+    "set_substr" when deciding whether to move a tag boundary. The start of
+    any tag that starts "before" the string is never moved, even if more
     text is inserted at the beginning. Similarly, a tag which ends "after"
     the end of the string, will continue to the end even if more text is
     appended.
@@ -150,8 +156,7 @@ METHODS
   $st->iter_extents( $callback, %opts )
     Iterate the tags stored in the string. For each tag, the CODE reference
     in $callback is invoked once, being passed an extent object that
-    represents the extent of the tag. These extents will have the
-    "anchor_before" and "anchor_after" flags defined.
+    represents the extent of the tag.
 
      $callback->( $extent, $tagname, $tagvalue )
 
@@ -168,6 +173,12 @@ METHODS
         End after the given length beyond the start position; defaults to
         end of string. This option only applies if "end" is not given.
 
+    only => ARRAY
+        Select only the tags named in the given ARRAY reference.
+
+    except => ARRAY
+        Select all the tags except those named in the given ARRAY reference.
+
   $st->iter_tags( $callback, %opts )
     Iterate the tags stored in the string. For each tag, the CODE reference
     in $callback is invoked once, being passed the start point and length of
@@ -175,7 +186,7 @@ METHODS
 
      $callback->( $start, $length, $tagname, $tagvalue )
 
-    Options passed in %opts are the same as for "iter_extents()".
+    Options passed in %opts are the same as for "iter_extents".
 
   $st->iter_extents_nooverlap( $callback, %opts )
     Iterate non-overlapping extents of tags stored in the string. The CODE
@@ -190,26 +201,31 @@ METHODS
     including any extents with no tags applied.
 
     Options may be passed in %opts to control the range of the string
-    iterated over, in the same way as the "iter_extents()" method.
+    iterated over, in the same way as the "iter_extents" method.
+
+    If the "only" or "except" filters are applied, then only the tags that
+    survive filtering will be present in the %tags hash. Tags that are
+    excluded by the filtering will not be present, nor will their bounds be
+    used to split the string into extents.
 
   $st->iter_tags_nooverlap( $callback, %opts )
-    Iterate extents of the string using "iter_extents_nooverlap()", but
+    Iterate extents of the string using "iter_extents_nooverlap", but
     passing the start and length of each extent to the callback instead of
     the extent object.
 
      $callback->( $start, $length, %tags )
 
     Options may be passed in %opts to control the range of the string
-    iterated over, in the same way as the "iter_extents()" method.
+    iterated over, in the same way as the "iter_extents" method.
 
   $st->iter_substr_nooverlap( $callback, %opts )
-    Iterate extents of the string using "iter_extents_nooverlap()", but
+    Iterate extents of the string using "iter_extents_nooverlap", but
     passing the substring of data instead of the extent object.
 
      $callback->( $substr, %tags )
 
     Options may be passed in %opts to control the range of the string
-    iterated over, in the same way as the "iter_extents()" method.
+    iterated over, in the same way as the "iter_extents" method.
 
   @names = $st->tagnames
     Returns the set of tag names used in the string, in no particular order.
@@ -226,7 +242,7 @@ METHODS
     If the named tag applies to the given position, returns the extent of
     the tag at that position. If it does not, "undef" is returned. If an
     extent is returned it will define the "anchor_before" and "anchor_after"
-    flags.
+    flags if appropriate.
 
   $extent = $st->get_tag_missing_extent( $pos, $name )
     If the named tag does not apply at the given position, returns the
@@ -237,7 +253,7 @@ METHODS
 
   $st->set_substr( $start, $len, $newstr )
     Modifies a extent of the underlying plain string to that given. The
-    extent of tags in the string are adjusted to cope with the modified
+    extents of tags in the string are adjusted to cope with the modified
     region, and the adjustment in length.
 
     Tags entirely before the replaced extent remain unchanged.
@@ -261,7 +277,7 @@ METHODS
 
   $st->insert( $start, $newstr )
     Insert the given string at the given position. A shortcut around
-    "set_substr()".
+    "set_substr".
 
     If $newstr is a "String::Tagged" object, then its tags will be applied
     to $st as appropriate. If $start is 0, any before-anchored tags in will
@@ -269,7 +285,7 @@ METHODS
 
   $st->append( $newstr )
   $st .= $newstr
-    Append to the underlying plain string. A shortcut around "set_substr()".
+    Append to the underlying plain string. A shortcut around "set_substr".
 
     If $newstr is a "String::Tagged" object, then its tags will be applied
     to $st as appropriate. Any after-anchored tags in will become
@@ -285,6 +301,11 @@ METHODS
     together, preserving any tags present. This method overloads normal
     string concatenation operator, so expressions involving "String::Tagged"
     values retain their tags.
+
+    This method or operator tries to respect subclassing; preferring to
+    return a new object of a subclass if either argument or operand is a
+    subclass of "String::Tagged". If they are both subclasses, it will
+    prefer the type of the invocant or first operand.
 
   $ret = $st->debug_sprintf
     Returns a representation of the string data and all the tags, suitable
@@ -308,10 +329,10 @@ Extent Objects
     These objects represent a range of characters within the containing
     "String::Tagged" object. The range they represent is fixed at the time
     of creation. If the containing string is modified by a call to
-    "set_substr()" then the effect on the extent object is not defined.
-    These objects should be considered as relatively short-lived - used
-    briefly for the purpose of querying the result of an operation, then
-    discarded soon after.
+    "set_substr" then the effect on the extent object is not defined. These
+    objects should be considered as relatively short-lived - used briefly
+    for the purpose of querying the result of an operation, then discarded
+    soon after.
 
   $extent->string
     Returns the containing "String::Tagged" object.
@@ -340,9 +361,9 @@ Extent Objects
     the extent.
 
 TODO
-    *   There are likely variations on the rules for "set_substr()" that
-        could equally apply to some uses of tagged strings. Consider whether
-        the behaviour of modification is chosen per-method, per-tag, or
+    *   There are likely variations on the rules for "set_substr" that could
+        equally apply to some uses of tagged strings. Consider whether the
+        behaviour of modification is chosen per-method, per-tag, or
         per-string.
 
 AUTHOR

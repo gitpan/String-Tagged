@@ -1,5 +1,10 @@
 Revision history for String-Tagged
 
+0.07    CHANGES:
+         * Respect subclassing in ->concat and . operator
+         * Added ->new_tagged convenience constructor
+         * Added 'only' and 'except' filters to iteration methods
+
 0.06    CHANGES:
          * Use Test::Identity to work around recent behavioural change in
            Test::More when comparing object references

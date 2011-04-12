@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
+use warnings;
 
-use Test::More tests => 29;
+use Test::More tests => 32;
 use Test::Identity;
 
 use String::Tagged;
@@ -199,3 +200,17 @@ is_deeply( \@extents,
      [ "BEGIN middle END",  0, 16, 1, 1 ],
      [              "END", 13, 16, 0, 1 ] ],
    'constructor clones tags' );
+
+$str = String::Tagged->new_tagged( "sample", foo => 1 );
+
+is( $str->str, "sample", '->str from ->new_tagged' );
+
+is_deeply( $str->get_tags_at( 0 ),
+           { foo => 1 },
+           'tags at pos 0 from ->new_tagged' );
+
+undef @tags;
+$str->iter_tags_nooverlap( \&fetch_tags );
+is_deeply( \@tags,
+           [ [ 0, 6, foo => 1 ] ],
+           'tags list from ->new_tagged' );

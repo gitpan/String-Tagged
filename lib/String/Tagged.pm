@@ -1,7 +1,7 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2008-2010 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2008-2011 -- leonerd@leonerd.org.uk
 
 package String::Tagged;
 
@@ -11,7 +11,7 @@ use warnings;
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 =head1 NAME
 
@@ -50,7 +50,7 @@ containing an event handler of some kind.
 
 Tags may be arbitrarily overlapped. Any given offset within the string has in
 effect, a set of uniquely named tags. Tags of different names are independent.
-For tags of the same name, only the the latest, shortest tag takes effect.
+For tags of the same name, only the latest, shortest tag takes effect.
 
 For example, consider a string with three tags represented here:
 
@@ -73,9 +73,10 @@ semantic idea. Consider the following string:
           [--------]  type => "message"
 
 This string contains two tags. C<String::Tagged> will treat this as two
-different tag values as far as C<iter_tags_nooverlap()> is concerned, even
-though C<get_tag_at()> yields the same value for the C<type> tag at any
-position in the string.
+different tag values as far as C<iter_tags_nooverlap> is concerned, even
+though C<get_tag_at> yields the same value for the C<type> tag at any position
+in the string. The C<merge_tags> method may be used to merge tag extents of
+tags that should be considered as equal.
 
 =head1 NAMING
 
@@ -151,6 +152,26 @@ sub new
    return $self;
 }
 
+=head2 $st = String::Tagged->new_tagged( $str, %tags )
+
+Shortcut for creating a new C<String::Tagged> object with the given tags
+applied to the entire length. The tags will not be anchored at either end.
+
+=cut
+
+sub new_tagged
+{
+   my $class = shift;
+   my ( $str, %tags ) = @_;
+
+   my $self = $class->new( $str );
+
+   my $length = $self->length;
+   $self->apply_tag( 0, $length, $_ => $tags{$_} ) for keys %tags;
+
+   return $self;
+}
+
 sub _mkextent
 {
    my $self = shift;
@@ -192,7 +213,7 @@ sub str
 =head2 $len = length( $st )
 
 Returns the length of the plain string. Because stringification works on this
-object class, the normal core C<length()> function works correctly on it.
+object class, the normal core C<length> function works correctly on it.
 
 =cut
 
@@ -331,7 +352,7 @@ characters.
 If C<$start> is given as -1, the tag will be considered to start "before" the
 actual string. If C<$len> is given as -1, the tag will be considered to
 end "after" end of the actual string. These special limits are used by
-C<set_substr()> when deciding whether to move a tag boundary. The start of any
+C<set_substr> when deciding whether to move a tag boundary. The start of any
 tag that starts "before" the string is never moved, even if more text is
 inserted at the beginning. Similarly, a tag which ends "after" the end of the
 string, will continue to the end even if more text is appended.
@@ -502,8 +523,7 @@ sub merge_tags
 
 Iterate the tags stored in the string. For each tag, the CODE reference in
 C<$callback> is invoked once, being passed an extent object that represents
-the extent of the tag. These extents will have the C<anchor_before> and
-C<anchor_after> flags defined.
+the extent of the tag.
 
  $callback->( $extent, $tagname, $tagvalue )
 
@@ -525,6 +545,14 @@ C<len>.
 End after the given length beyond the start position; defaults to end of
 string. This option only applies if C<end> is not given.
 
+=item only => ARRAY
+
+Select only the tags named in the given ARRAY reference.
+
+=item except => ARRAY
+
+Select all the tags except those named in the given ARRAY reference.
+
 =back
 
 =cut
@@ -541,6 +569,12 @@ sub iter_extents
                exists $opts{len} ? $start + $opts{len} :
                                    $self->length;
 
+   my $only = exists $opts{only} ? { map { $_ => 1 } @{ $opts{only} } } :
+                                   undef;
+
+   my $except = exists $opts{except} ? { map { $_ => 1 } @{ $opts{except} } } :
+                                       undef;
+
    my $tags = $self->{tags};
 
    foreach my $t ( @$tags ) {
@@ -548,6 +582,9 @@ sub iter_extents
 
       next if $te < $start;
       last if $ts >= $end;
+
+      next if $only   and !$only->{$tn};
+      next if $except and  $except->{$tn};
 
       $callback->( $self->_mkextent( $ts, $te, $tf ), $tn, $tv );
    }
@@ -561,7 +598,7 @@ tag.
 
  $callback->( $start, $length, $tagname, $tagvalue )
 
-Options passed in C<%opts> are the same as for C<iter_extents()>.
+Options passed in C<%opts> are the same as for C<iter_extents>.
 
 =cut
 
@@ -593,7 +630,12 @@ The callback will be invoked over the entire length of the string, including
 any extents with no tags applied.
 
 Options may be passed in C<%opts> to control the range of the string iterated
-over, in the same way as the C<iter_extents()> method.
+over, in the same way as the C<iter_extents> method.
+
+If the C<only> or C<except> filters are applied, then only the tags that
+survive filtering will be present in the C<%tags> hash. Tags that are excluded
+by the filtering will not be present, nor will their bounds be used to split
+the string into extents.
 
 =cut
 
@@ -609,6 +651,12 @@ sub iter_extents_nooverlap
                exists $opts{len} ? $start + $opts{len} :
                                    $self->length;
 
+   my $only = exists $opts{only} ? { map { $_ => 1 } @{ $opts{only} } } :
+                                   undef;
+
+   my $except = exists $opts{except} ? { map { $_ => 1 } @{ $opts{except} } } :
+                                       undef;
+
    my $tags = $self->{tags};
 
    my @active; # ARRAY of [ $ts, $te, $tn, $tv ]
@@ -619,6 +667,9 @@ sub iter_extents_nooverlap
 
       next if $te < $start;
       last if $ts >= $end;
+
+      next if $only   and !$only->{$tn};
+      next if $except and  $except->{$tn};
 
       while( $pos < $ts ) {
          my %activetags;
@@ -668,14 +719,14 @@ sub iter_extents_nooverlap
 
 =head2 $st->iter_tags_nooverlap( $callback, %opts )
 
-Iterate extents of the string using C<iter_extents_nooverlap()>, but passing
+Iterate extents of the string using C<iter_extents_nooverlap>, but passing
 the start and length of each extent to the callback instead of the extent
 object.
 
  $callback->( $start, $length, %tags )
 
 Options may be passed in C<%opts> to control the range of the string iterated
-over, in the same way as the C<iter_extents()> method.
+over, in the same way as the C<iter_extents> method.
 
 =cut
 
@@ -695,13 +746,13 @@ sub iter_tags_nooverlap
 
 =head2 $st->iter_substr_nooverlap( $callback, %opts )
 
-Iterate extents of the string using C<iter_extents_nooverlap()>, but passing
-the substring of data instead of the extent object.
+Iterate extents of the string using C<iter_extents_nooverlap>, but passing the
+substring of data instead of the extent object.
 
  $callback->( $substr, %tags )
 
 Options may be passed in C<%opts> to control the range of the string iterated
-over, in the same way as the C<iter_extents()> method.
+over, in the same way as the C<iter_extents> method.
 
 =cut
 
@@ -799,7 +850,8 @@ sub get_tag_at
 
 If the named tag applies to the given position, returns the extent of the tag
 at that position. If it does not, C<undef> is returned. If an extent is
-returned it will define the C<anchor_before> and C<anchor_after> flags.
+returned it will define the C<anchor_before> and C<anchor_after> flags if
+appropriate.
 
 =cut
 
@@ -873,7 +925,7 @@ sub get_tag_missing_extent
 
 =head2 $st->set_substr( $start, $len, $newstr )
 
-Modifies a extent of the underlying plain string to that given. The extent of
+Modifies a extent of the underlying plain string to that given. The extents of
 tags in the string are adjusted to cope with the modified region, and the
 adjustment in length.
 
@@ -1022,7 +1074,7 @@ sub set_substr
 =head2 $st->insert( $start, $newstr )
 
 Insert the given string at the given position. A shortcut around
-C<set_substr()>.
+C<set_substr>.
 
 If C<$newstr> is a C<String::Tagged> object, then its tags will be applied to
 C<$st> as appropriate. If C<$start> is 0, any before-anchored tags in will
@@ -1041,7 +1093,7 @@ sub insert
 
 =head2 $st .= $newstr
 
-Append to the underlying plain string. A shortcut around C<set_substr()>.
+Append to the underlying plain string. A shortcut around C<set_substr>.
 
 If C<$newstr> is a C<String::Tagged> object, then its tags will be applied to
 C<$st> as appropriate. Any after-anchored tags in will become after-anchored
@@ -1087,6 +1139,11 @@ together, preserving any tags present. This method overloads normal string
 concatenation operator, so expressions involving C<String::Tagged> values
 retain their tags.
 
+This method or operator tries to respect subclassing; preferring to return a
+new object of a subclass if either argument or operand is a subclass of
+C<String::Tagged>. If they are both subclasses, it will prefer the type of the
+invocant or first operand.
+
 =cut
 
 use overload '.' => 'concat';
@@ -1096,7 +1153,11 @@ sub concat
    my $self = shift;
    my ( $other, $swap ) = @_;
 
-   my $ret = __PACKAGE__->new( $self );
+   # Try to find the "higher" subclass
+   my $class = ( ref $self eq __PACKAGE__ and eval { $other->isa( __PACKAGE__ ) } )
+                  ? ref $other : ref $self;
+
+   my $ret = $class->new( $self );
    return $ret->insert( 0, $other ) if $swap;
    return $ret->append( $other );
 }
@@ -1171,7 +1232,7 @@ sub debug_sprintf
 
 These objects represent a range of characters within the containing
 C<String::Tagged> object. The range they represent is fixed at the time of
-creation. If the containing string is modified by a call to C<set_substr()>
+creation. If the containing string is modified by a call to C<set_substr>
 then the effect on the extent object is not defined. These objects should be
 considered as relatively short-lived - used briefly for the purpose of
 querying the result of an operation, then discarded soon after.
@@ -1265,23 +1326,22 @@ sub substr
    $self->string->substr( $self->start, $self->length );
 }
 
-# Keep perl happy; keep Britain tidy
-1;
-
-__END__
-
 =head1 TODO
 
 =over 4
 
 =item *
 
-There are likely variations on the rules for C<set_substr()> that could
-equally apply to some uses of tagged strings. Consider whether the behaviour
-of modification is chosen per-method, per-tag, or per-string.
+There are likely variations on the rules for C<set_substr> that could equally
+apply to some uses of tagged strings. Consider whether the behaviour of
+modification is chosen per-method, per-tag, or per-string.
 
 =back
 
 =head1 AUTHOR
 
 Paul Evans <leonerd@leonerd.org.uk>
+
+=cut
+
+0x55AA;

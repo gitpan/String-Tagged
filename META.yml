@@ -16,7 +16,7 @@ name: String-Tagged
 provides:
   String::Tagged:
     file: lib/String/Tagged.pm
-    version: 0.06
+    version: 0.07
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.06
+version: 0.07

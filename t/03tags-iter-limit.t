@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
+use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 10;
 
 use String::Tagged;
 
@@ -32,6 +33,23 @@ is_deeply( \@tags,
            ],
            'tags list with end limit' );
 
+undef @tags;
+$str->iter_tags( sub { push @tags, [ @_ ] }, only => [qw( message )] );
+is_deeply( \@tags,
+           [
+              [ 0, 32, message => 1 ],
+           ],
+           'tags list with only (message)' );
+
+undef @tags;
+$str->iter_tags( sub { push @tags, [ @_ ] }, except => [qw( message )] );
+is_deeply( \@tags,
+           [
+              [ 14,  4, bold    => 1 ],
+              [ 23,  4, italic  => 1 ],
+           ],
+           'tags list with except (message)' );
+
 sub fetch_tags
 {
    my ( $start, $len, %tags ) = @_;
@@ -57,6 +75,26 @@ is_deeply( \@tags,
               [ 18,  2, message => 1 ],
            ],
            'tags list non-overlapping with end limit' );
+
+undef @tags;
+$str->iter_tags_nooverlap( \&fetch_tags, only => [qw( message )] );
+is_deeply( \@tags, 
+           [
+              [  0, 32, message => 1 ],
+           ],
+           'tags list non-overlapping with only limit' );
+
+undef @tags;
+$str->iter_tags_nooverlap( \&fetch_tags, except => [qw( message )] );
+is_deeply( \@tags, 
+           [
+              [  0, 14 ],
+              [ 14,  4, bold  => 1 ],
+              [ 18,  5 ],
+              [ 23,  4, italic  => 1 ],
+              [ 27,  5 ],
+           ],
+           'tags list non-overlapping with except limit' );
 
 my @substrs;
 sub fetch_substrs
