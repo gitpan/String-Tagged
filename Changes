@@ -1,5 +1,9 @@
 Revision history for String-Tagged
 
+0.08    CHANGES:
+         * Efficiency updates to improve the performance of common append
+           operations
+
 0.07    CHANGES:
          * Respect subclassing in ->concat and . operator
          * Added ->new_tagged convenience constructor

@@ -22,3 +22,4 @@ t/30appendinsert.t
 t/40operators.t
 t/50subclass.t
 t/99pod.t
+META.json

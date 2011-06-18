@@ -8,10 +8,14 @@ package String::Tagged;
 use strict;
 use warnings;
 
+our $VERSION = '0.08';
+
+use Scalar::Util qw( blessed );
+
 use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
-our $VERSION = '0.07';
+use constant DEBUG => 0;
 
 =head1 NAME
 
@@ -139,7 +143,7 @@ sub new
       tags => [],
    }, $class;
 
-   if( eval { $str->isa( __PACKAGE__ ) } ) {
+   if( blessed $str and $str->isa( __PACKAGE__ ) ) {
       $str->iter_extents( sub {
          my ( $e, $tn, $tv ) = @_;
          $self->apply_tag(
@@ -340,7 +344,7 @@ sub _insert_tag
 
    splice @$tags, $inspos, 0, $newtag;
 
-   $self->_assert_sorted;
+   $self->_assert_sorted if DEBUG;
 }
 
 =head2 $st->apply_tag( $start, $len, $name, $value )
@@ -422,7 +426,7 @@ sub _remove_tag
       }
    }
 
-   if( $have_added ) {
+   if( DEBUG && $have_added ) {
       $self->_assert_sorted;
    }
 }
@@ -1053,7 +1057,7 @@ sub set_substr
       }
    }
 
-   if( eval { $new->isa( __PACKAGE__ ) } ) {
+   if( blessed $new and $new->isa( __PACKAGE__ ) ) {
       my $atstart = $start == 0;
       my $atend   = $newend == $self->length;
 
@@ -1066,7 +1070,7 @@ sub set_substr
       } );
    }
 
-   $self->_assert_sorted;
+   $self->_assert_sorted if DEBUG;
 
    return $self;
 }
@@ -1108,7 +1112,24 @@ sub append
    my $self = shift;
    my ( $new ) = @_;
 
-   $self->insert( $self->length, $new );
+   return $self->set_substr( $self->length, 0, $new ) if blessed $new and $new->isa( __PACKAGE__ );
+
+   # Optimised version
+   $self->{str} .= $new;
+
+   my $newend = $self->length;
+
+   my $tags = $self->{tags};
+
+   my $i = 0;
+
+   # Adjust boundaries of ANCHOR_AFTER tags
+   for( ; $i < @$tags; $i++ ) {
+      my $t = $tags->[$i];
+      $t->[1] = $newend if $t->[4] & FLAG_ANCHOR_AFTER;
+   }
+
+   return $self;
 }
 
 =head2 $st->append_tagged( $newstr, %tags )
@@ -1154,7 +1175,7 @@ sub concat
    my ( $other, $swap ) = @_;
 
    # Try to find the "higher" subclass
-   my $class = ( ref $self eq __PACKAGE__ and eval { $other->isa( __PACKAGE__ ) } )
+   my $class = ( ref $self eq __PACKAGE__ and blessed $other and $other->isa( __PACKAGE__ ) )
                   ? ref $other : ref $self;
 
    my $ret = $class->new( $self );
