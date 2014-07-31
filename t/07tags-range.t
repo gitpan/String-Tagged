@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 21;
+use Test::More;
 use Test::Identity;
 
 use String::Tagged;
@@ -55,3 +55,5 @@ ok( defined $e, '$e missing defined for 10/big' );
 
 is( $e->start,  8, '$e->start' );
 is( $e->end,   14, '$e->end' );
+
+done_testing;

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More;
 
 use String::Tagged;
 
@@ -22,3 +22,5 @@ is( $s->str, "I say, Hello, world", 'concat before' );
 $str .= "!";
 
 is( $str->str, "Hello, world!", 'str after .= operator' );
+
+done_testing;

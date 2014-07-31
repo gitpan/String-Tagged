@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;
+use Test::More;
 
 use String::Tagged;
 
@@ -122,3 +122,5 @@ is_deeply( \@substrs,
               [ " a",               message => 1 ],
            ],
            'substrs non-overlapping with start offset' );
+
+done_testing;

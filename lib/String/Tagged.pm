@@ -1,14 +1,14 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2008-2011 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2008-2013 -- leonerd@leonerd.org.uk
 
 package String::Tagged;
 
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Scalar::Util qw( blessed );
 
@@ -361,6 +361,8 @@ tag that starts "before" the string is never moved, even if more text is
 inserted at the beginning. Similarly, a tag which ends "after" the end of the
 string, will continue to the end even if more text is appended.
 
+This method returns the C<$st> object.
+
 =cut
 
 sub apply_tag
@@ -388,6 +390,8 @@ sub apply_tag
    }
 
    $self->_insert_tag( $start, $end, $name, $value, $flags );
+
+   return $self;
 }
 
 sub _remove_tag
@@ -436,6 +440,8 @@ sub _remove_tag
 Unapply the named tag value from the given extent. If the tag extends beyond
 this extent, then any partial fragment of the tag will be left in the string.
 
+This method returns the C<$st> object.
+
 =cut
 
 sub unapply_tag
@@ -443,12 +449,15 @@ sub unapply_tag
    my $self = shift;
    my ( $start, $len, $name ) = @_;
    $self->_remove_tag( $start, $len, $name, 1 );
+   return $self;
 }
 
 =head2 $st->delete_tag( $start, $len, $name )
 
 Delete the named tag within the given extent. Entire tags are removed, even if
 they extend beyond this extent.
+
+This method returns the C<$st> object.
 
 =cut
 
@@ -457,6 +466,7 @@ sub delete_tag
    my $self = shift;
    my ( $start, $len, $name ) = @_;
    $self->_remove_tag( $start, $len, $name, 0 );
+   return $self;
 }
 
 =head2 $st->merge_tags( $eqsub )

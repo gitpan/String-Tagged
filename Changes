@@ -1,5 +1,10 @@
 Revision history for String-Tagged
 
+0.09    2014/07/31 20:28:59
+        [CHANGES]
+         * Have apply_tag, unapply_tag, delete_tag accessors return the object
+           itself, so they're nice for chaining constructors
+
 0.08    CHANGES:
          * Efficiency updates to improve the performance of common append
            operations

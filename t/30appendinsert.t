@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More;
 
 use String::Tagged;
 
@@ -83,3 +83,5 @@ is_deeply( \@tags,
               [ 10, 6, begin => 1 ],
            ],
            'tags list after second prepend' );
+
+done_testing;

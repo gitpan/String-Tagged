@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;
+use Test::More;
 
 use String::Tagged;
 
@@ -65,3 +65,5 @@ is_deeply( \@tags,
               [ 7, 5, everywhere => 1, word => "target" ],
            ],
            'tags list after third append' );
+
+done_testing;

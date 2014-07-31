@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 32;
+use Test::More;
 use Test::Identity;
 
 use String::Tagged;
@@ -12,7 +12,7 @@ my $str = String::Tagged->new( "Hello, world" );
 
 is_deeply( [ $str->tagnames ], [], 'No tags defined initially' );
 
-$str->apply_tag( 0, 12, message => 1 );
+identical( $str->apply_tag( 0, 12, message => 1 ), $str, '->apply_tag returns $str' );
 
 is_deeply( [ $str->tagnames ], [qw( message )], 'message tag now defined' );
 
@@ -214,3 +214,5 @@ $str->iter_tags_nooverlap( \&fetch_tags );
 is_deeply( \@tags,
            [ [ 0, 6, foo => 1 ] ],
            'tags list from ->new_tagged' );
+
+done_testing;

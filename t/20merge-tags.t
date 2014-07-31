@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More;
 
 use String::Tagged;
 
@@ -126,3 +126,5 @@ is_deeply( \@tags,
               [ 0, 12, message => 1 ],
            ],
            'tags list after merge with overlap' );
+
+done_testing;

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More;
 
 use String::Tagged;
 
@@ -36,3 +36,5 @@ is( $str->debug_sprintf,
     " <[----------]> everywhere => 1\n" .
     "        |       space      => 1\n",
     'everywhere tag' );
+
+done_testing;

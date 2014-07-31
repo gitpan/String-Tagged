@@ -3,7 +3,8 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More;
+use Test::Identity;
 
 use String::Tagged;
 
@@ -19,7 +20,7 @@ is_deeply( \@tags,
            ],
            'tags list initially' );
 
-$str->delete_tag( 3, 4, 'message' );
+identical( $str->delete_tag( 3, 4, 'message' ), $str, '->delete_tag returns $str' );
 
 undef @tags;
 $str->iter_tags_nooverlap( sub { push @tags, [ @_ ] } );
@@ -31,7 +32,7 @@ is_deeply( \@tags,
 
 $str->apply_tag( -1, -1, message => 1 );
 
-$str->unapply_tag( 3, 4, 'message' );
+identical( $str->unapply_tag( 3, 4, 'message' ), $str, '->unapply_tag returns $str' );
 
 undef @tags;
 $str->iter_tags_nooverlap( sub { push @tags, [ @_ ] } );
@@ -65,3 +66,5 @@ is_deeply( \@tags,
              [ 10,  8, message => 1 ],
            ],
            'tags list after third unapply' );
+
+done_testing;

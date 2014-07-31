@@ -3,19 +3,19 @@ abstract: 'string buffers with value tags on extents'
 author:
   - 'Paul Evans <leonerd@leonerd.org.uk>'
 build_requires:
-  Test::Identity: 0
-  Test::More: 0
+  Test::Identity: '0'
+  Test::More: '0.88'
 dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110930'
+generated_by: 'Module::Build version 0.4205, CPAN::Meta::Converter version 2.133380'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  version: '1.4'
 name: String-Tagged
 provides:
   String::Tagged:
     file: lib/String/Tagged.pm
-    version: 0.08
+    version: '0.09'
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.08
+version: '0.09'

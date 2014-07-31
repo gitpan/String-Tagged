@@ -4,7 +4,7 @@
       "Paul Evans <leonerd@leonerd.org.uk>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110930",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "perl_5"
    ],
@@ -16,15 +16,15 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Test::Identity" : 0,
-            "Test::More" : 0
+            "Test::Identity" : "0",
+            "Test::More" : "0.88"
          }
       }
    },
    "provides" : {
       "String::Tagged" : {
          "file" : "lib/String/Tagged.pm",
-         "version" : "0.08"
+         "version" : "0.09"
       }
    },
    "release_status" : "stable",
@@ -33,5 +33,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.08"
+   "version" : "0.09"
 }

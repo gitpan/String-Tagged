@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More;
 
 use String::Tagged;
 
@@ -26,3 +26,5 @@ is( $str->str, "Hello, lovely planet", 'After insert' );
 
 $str->append( "!" );
 is( $str->str, "Hello, lovely planet!", 'After append' );
+
+done_testing;

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More;
 
 package STSubclass;
 use base qw( String::Tagged );
@@ -21,3 +21,5 @@ my $bar = String::Tagged->new( "bar" );
 
 isa_ok( $foo . $bar, "STSubclass", 'concat plain after' );
 isa_ok( $bar . $foo, "STSubclass", 'concat plain before' );
+
+done_testing;

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More;
 
 use String::Tagged;
 
@@ -90,3 +90,5 @@ is_deeply( \@tags,
               [ 12, 2, message => 1, planet => 1 ],
            ],
            'tags list after prepend substr' );
+
+done_testing;
