@@ -22,7 +22,7 @@ identical( $e->string, $str, '$e->str' );
 is( $e->start,   0, '$e->start' );
 is( $e->end,    14, '$e->end' );
 is( $e->length, 14, '$e->length' );
-is( $e->substr, "some BIG words", '$e->substr' );
+is( $e->plain_substr, "some BIG words", '$e->substr' );
 ok( $e->anchor_before, '$e->anchor_before' );
 ok( $e->anchor_after,  '$e->anchor_after' );
 
@@ -30,7 +30,7 @@ $e = $str->get_tag_extent( 7, 'big' );
 
 is( $e->start, 5, '$e->start' );
 is( $e->end,   8, '$e->end' );
-is( $e->substr, "BIG", '$e->substr of 7/big' );
+is( $e->plain_substr, "BIG", '$e->substr of 7/big' );
 ok( !$e->anchor_before, '$e->anchor_before' );
 ok( !$e->anchor_after,  '$e->anchor_after' );
 

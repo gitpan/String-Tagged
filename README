@@ -110,7 +110,14 @@ METHODS
     it.
 
   $str = $st->substr( $start, $len )
-    Returns a substring of the plain string contained within the object.
+    Returns a `String::Tagged' instance representing a section from within
+    the given string, containing all the same tags at the same conceptual
+    positions.
+
+  $str = $st->plain_substr( $start, $len )
+    Returns as a plain perl string, the substring at the given position.
+    This will be the same string data as returned by `substr', only as a
+    plain string without the tags
 
   $st->apply_tag( $start, $len, $name, $value )
     Apply the named tag value to the given extent. The tag will start on the
@@ -301,6 +308,8 @@ METHODS
     Append to the underlying plain string, and apply the given tags to the
     newly-inserted extent.
 
+    Returns `$st' itself so that the method may be easily chained.
+
   $ret = $st->concat( $other )
   $ret = $st . $other
     Returns a new `String::Tagged' containing the two strings concatenated
@@ -312,6 +321,31 @@ METHODS
     return a new object of a subclass if either argument or operand is a
     subclass of `String::Tagged'. If they are both subclasses, it will
     prefer the type of the invocant or first operand.
+
+  @subs = $st->matches( $regexp )
+    Returns a list of substrings (as `String::Tagged' instances) for every
+    non-overlapping match of the given `$regexp'.
+
+    This could be used, for example, to build a formatted string from a
+    formatted template containing variable expansions:
+
+     my $template = ...
+     my %vars = ...
+
+     my $ret = String::Tagged->new;
+     foreach my $m ( $template->matches( qr/\$\w+|[^$]+/ ) ) {
+        if( $m =~ m/^\$(\w+)$/ ) {
+           $ret->append_tagged( $vars{$1}, %{ $m->get_tags_at( 0 ) } );
+        }
+        else {
+           $ret->append( $m );
+        }
+     }
+
+    This iterates segments of the template containing variables expansions
+    starting with a `$' symbol, and replaces them with values from the
+    `%vars' hash, careful to preserve all the formatting tags from the
+    original template string.
 
   $ret = $st->debug_sprintf
     Returns a representation of the string data and all the tags, suitable
@@ -363,6 +397,9 @@ Extent Objects
     Returns the number of characters within the extent.
 
   $extent->substr
+    Returns the substring contained by the extent.
+
+  $extent->plain_substr
     Returns the substring of the underlying plain string buffer contained by
     the extent.
 

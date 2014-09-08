@@ -1,5 +1,15 @@
 Revision history for String-Tagged
 
+0.10    2014/09/08 17:48:53
+        [CHANGES]
+         * Have ->apply_tagged return the object itself, for chaining
+         * Have ->substr return a String::Tagged; add ->plain_substr for plain
+           perl strings
+         * Added ->matches
+
+        [BUGFIXES]
+         * Ensure ->get_tags_at at nonzero index works (RT98700)
+
 0.09    2014/07/31 20:28:59
         [CHANGES]
          * Have apply_tag, unapply_tag, delete_tag accessors return the object

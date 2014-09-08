@@ -1,14 +1,14 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2008-2013 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2008-2014 -- leonerd@leonerd.org.uk
 
 package String::Tagged;
 
 use strict;
 use warnings;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Scalar::Util qw( blessed );
 
@@ -229,11 +229,49 @@ sub length
 
 =head2 $str = $st->substr( $start, $len )
 
-Returns a substring of the plain string contained within the object.
+Returns a C<String::Tagged> instance representing a section from within the
+given string, containing all the same tags at the same conceptual positions.
 
 =cut
 
 sub substr
+{
+   my $self = shift;
+   my ( $start, $len ) = @_;
+
+   my $end = $start + $len;
+
+   my $ret = ( ref $self )->new( CORE::substr( $self->{str}, $start, $len ) );
+
+   my $tags = $self->{tags};
+
+   foreach my $t ( @$tags ) {
+      my ( $ts, $te, $tn, $tv, $tf ) = @$t;
+
+      next if $te < $start;
+      last if $ts >= $end;
+
+      $_ -= $start for $ts, $te;
+      next if $te <= 0;
+
+      $ts = -1 if $ts < 0    or $tf & FLAG_ANCHOR_BEFORE;
+      $te = -1 if $te > $end or $tf & FLAG_ANCHOR_AFTER;
+
+      $ret->apply_tag( $ts, $te, $tn => $tv );
+   }
+
+   return $ret;
+}
+
+=head2 $str = $st->plain_substr( $start, $len )
+
+Returns as a plain perl string, the substring at the given position. This will
+be the same string data as returned by C<substr>, only as a plain string
+without the tags
+
+=cut
+
+sub plain_substr
 {
    my $self = shift;
    my ( $start, $len ) = @_;
@@ -778,7 +816,7 @@ sub iter_substr_nooverlap
    $self->iter_extents_nooverlap(
       sub {
          my ( $e, %tags ) = @_;
-         $callback->( $e->substr, %tags );
+         $callback->( $e->plain_substr, %tags );
       },
       %opts,
    );
@@ -823,8 +861,8 @@ sub get_tags_at
    foreach my $t ( @$tags ) {
       my ( $ts, $te, $tn, $tv ) = @$t;
 
-      next if $pos < $ts;
-      last if $pos >= $te;
+      last if $ts >  $pos;
+      next if $te <= $pos;
 
       $tags{$tn} = $tv;
    }
@@ -1147,6 +1185,8 @@ sub append
 Append to the underlying plain string, and apply the given tags to the
 newly-inserted extent.
 
+Returns C<$st> itself so that the method may be easily chained.
+
 =cut
 
 sub append_tagged
@@ -1159,6 +1199,8 @@ sub append_tagged
 
    $self->append( $new );
    $self->apply_tag( $start, $len, $_, $tags{$_} ) for keys %tags;
+
+   return $self;
 }
 
 =head2 $ret = $st->concat( $other )
@@ -1191,6 +1233,49 @@ sub concat
    my $ret = $class->new( $self );
    return $ret->insert( 0, $other ) if $swap;
    return $ret->append( $other );
+}
+
+=head2 @subs = $st->matches( $regexp )
+
+Returns a list of substrings (as C<String::Tagged> instances) for every
+non-overlapping match of the given C<$regexp>.
+
+This could be used, for example, to build a formatted string from a formatted
+template containing variable expansions:
+
+ my $template = ...
+ my %vars = ...
+
+ my $ret = String::Tagged->new;
+ foreach my $m ( $template->matches( qr/\$\w+|[^$]+/ ) ) {
+    if( $m =~ m/^\$(\w+)$/ ) {
+       $ret->append_tagged( $vars{$1}, %{ $m->get_tags_at( 0 ) } );
+    }
+    else {
+       $ret->append( $m );
+    }
+ }
+
+This iterates segments of the template containing variables expansions
+starting with a C<$> symbol, and replaces them with values from the C<%vars>
+hash, careful to preserve all the formatting tags from the original template
+string.
+
+=cut
+
+sub matches
+{
+   my $self = shift;
+   my ( $re ) = @_;
+
+   my $plain = $self->str;
+
+   my @ret;
+   while( $plain =~ m/$re/g ) {
+      push @ret, $self->substr( $-[0], $+[0] - $-[0] );
+   }
+
+   return @ret;
 }
 
 =head2 $ret = $st->debug_sprintf
@@ -1346,8 +1431,7 @@ sub length
 
 =head2 $extent->substr
 
-Returns the substring of the underlying plain string buffer contained by the
-extent.
+Returns the substring contained by the extent.
 
 =cut
 
@@ -1355,6 +1439,19 @@ sub substr
 {
    my $self = shift;
    $self->string->substr( $self->start, $self->length );
+}
+
+=head2 $extent->plain_substr
+
+Returns the substring of the underlying plain string buffer contained by the
+extent.
+
+=cut
+
+sub plain_substr
+{
+   my $self = shift;
+   $self->string->plain_substr( $self->start, $self->length );
 }
 
 =head1 TODO

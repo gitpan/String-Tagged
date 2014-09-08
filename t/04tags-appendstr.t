@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Test::Identity;
 
 use String::Tagged;
 
@@ -11,9 +12,11 @@ my $str = String::Tagged->new();
 
 is_deeply( [ $str->tagnames ], [], 'No tags defined initially' );
 
-$str->apply_tag( -1, -1, everywhere => 1 );
+identical( scalar $str->apply_tag( -1, -1, everywhere => 1 ),
+   $str, '->apply_tag returns $str' );
 
-$str->append_tagged( "Hello", word => "greeting" );
+identical( scalar $str->append_tagged( "Hello", word => "greeting" ),
+   $str, '->append_tagged returns $str' );
 
 is( $str->str, "Hello", 'str after first append' );
 

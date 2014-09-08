@@ -36,7 +36,19 @@ identical( $e->string, $str, '$e->string' );
 is( $e->start,   0, '$e->start' );
 is( $e->length, 12, '$e->length' );
 is( $e->end,    12, '$e->end' );
-is( $e->substr, "Hello, world", '$e->substr' );
+is( $e->plain_substr, "Hello, world", '$e->plain_substr' );
+
+{
+   my $sub = $e->substr;
+   isa_ok( $sub, "String::Tagged", '$e->substr' );
+
+   my @tags;
+   $sub->iter_tags( sub { push @tags, [ @_ ] } );
+
+   is_deeply( \@tags,
+      [ [ 0, 12, message => 1 ] ],
+      '$e->substr->iter_tags' );
+}
 
 is_deeply( $str->get_tags_at( 0 ), 
            { message => 1 },
@@ -62,8 +74,8 @@ $str->iter_extents( sub { push @extents, $_[0] } );
 
 is( scalar @extents, 2, 'two extent from iter_extents' );
 
-is( $extents[0]->substr, "Hello, world", '$e[0]->substr' );
-is( $extents[1]->substr, " ", '$e[1]->substr' );
+is( $extents[0]->plain_substr, "Hello, world", '$e[0]->substr' );
+is( $extents[1]->plain_substr, " ", '$e[1]->substr' );
 
 sub fetch_tags
 {
@@ -184,6 +196,17 @@ is_deeply( \@tags,
               [ 13, 3, end => 1, everywhere => 1 ],
            ],
            'tags list with edge-anchored tags' );
+
+# RT98700
+{
+   my $str = String::Tagged->new( "Hello" );
+
+   $str->apply_tag( 1, 1, one  => 1 );
+   $str->apply_tag( 4, 1, four => 4 );
+
+   is_deeply( $str->get_tags_at( 1 ), { one  => 1 }, '->get_tags_at( 1 )' );
+   is_deeply( $str->get_tags_at( 4 ), { four => 4 }, '->get_tags_at( 4 )' );
+}
 
 my $str2 = String::Tagged->new( $str );
 
