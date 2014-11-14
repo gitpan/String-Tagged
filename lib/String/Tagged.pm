@@ -8,7 +8,7 @@ package String::Tagged;
 use strict;
 use warnings;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 use Scalar::Util qw( blessed );
 
@@ -16,6 +16,9 @@ use constant FLAG_ANCHOR_BEFORE => 0x01;
 use constant FLAG_ANCHOR_AFTER  => 0x02;
 
 use constant DEBUG => 0;
+
+# Since we're providing overloading, we should set fallback by default
+use overload fallback => 1;
 
 =head1 NAME
 
@@ -126,8 +129,8 @@ Returns a new instance of a C<String::Tagged> object. It will contain no tags.
 If the optional C<$str> argument is supplied, the string buffer will be
 initialised from this value.
 
-If C<$str> is a C<String::Tagged> object then its tags will be copied too;
-i.e. the constructor also works as a clone method.
+If C<$str> is a C<String::Tagged> object then it will be cloned, as if calling
+the C<clone> method on it.
 
 =cut
 
@@ -136,24 +139,14 @@ sub new
    my $class = shift;
    my ( $str ) = @_;
 
+   return $class->clone( $str ) if blessed $str and $str->isa( __PACKAGE__ );
+
    $str = "" unless defined $str;
 
-   my $self = bless {
+   return bless {
       str  => "$str",
       tags => [],
    }, $class;
-
-   if( blessed $str and $str->isa( __PACKAGE__ ) ) {
-      $str->iter_extents( sub {
-         my ( $e, $tn, $tv ) = @_;
-         $self->apply_tag(
-            $e->anchor_before ? -1 : $e->start,
-            $e->anchor_after  ? -1 : $e->length,
-            $tn, $tv );
-      } );
-   }
-
-   return $self;
 }
 
 =head2 $st = String::Tagged->new_tagged( $str, %tags )
@@ -174,6 +167,96 @@ sub new_tagged
    $self->apply_tag( 0, $length, $_ => $tags{$_} ) for keys %tags;
 
    return $self;
+}
+
+=head2 $new = String::Tagged->clone( $orig, %opts )
+
+Returns a new instance of C<String::Tagged> made by cloning the original,
+subject to the options provided. The returned instance will be in the
+requested class, which need not match the class of the original.
+
+The following options are recognised:
+
+=over 4
+
+=item only_tags => ARRAY
+
+If present, gives an ARRAY reference containing tag names. Only those tags
+named here will be copied; others will be ignored.
+
+=item except_tags => ARRAY
+
+If present, gives an ARRAY reference containing tag names. All tags will be
+copied except those named here.
+
+=item convert_tags => HASH
+
+If present, gives a HASH reference containing tag conversion functions. For
+any tags in the original to be copied whose names appear in the hash, the
+name and value are passed into the corresponding function, which should return
+an even-sized key/value list giving a tag, or a list of tags, to apply to the
+new clone.
+
+ my @new_tags = $convert_tags->{$orig_name}->( $orig_name, $orig_value )
+ # Where @new_tags is ( $new_name, $new_value, $new_name_2, $new_value_2, ... )
+
+As a further convenience, if the value for a given tag name is a plain string
+instead of a code reference, it gives the new name for the tag, and will be
+applied with its existing value.
+
+=back
+
+=head2 $new = $orig->clone( %args )
+
+Called as an instance (rather than a class) method, the newly-cloned instance
+is returned in the same class as the original.
+
+=cut
+
+sub clone
+{
+   my ( $class, $orig ) = blessed $_[0] ?
+      ( ref $_[0], shift ) :
+      ( shift, shift );
+   my %opts = @_;
+
+   my $only = exists $opts{only_tags} ?
+      { map { $_ => 1 } @{ $opts{only_tags} } } :
+      undef;
+
+   my $except = exists $opts{except_tags} ?
+      { map { $_ => 1 } @{ $opts{except_tags} } } :
+      undef;
+
+   my $convert = $opts{convert_tags};
+
+   my $new = $class->new( $orig->str );
+
+   $orig->iter_extents( sub {
+      my ( $e, $tn, $tv ) = @_;
+
+      return if $only and not $only->{$tn};
+      return if $except and $except->{$tn};
+
+      my @tags;
+      if( $convert and my $c = $convert->{$tn} ) {
+         if( ref $c eq "CODE" ) {
+            @tags = $c->( $tn, $tv );
+         }
+         else {
+            @tags = ( $c, $tv );
+         }
+      }
+      else {
+         @tags = ( $tn, $tv );
+      }
+
+      while( @tags ) {
+         $new->apply_tag( $e, shift @tags, shift @tags );
+      }
+   });
+
+   return $new;
 }
 
 sub _mkextent
@@ -401,31 +484,49 @@ string, will continue to the end even if more text is appended.
 
 This method returns the C<$st> object.
 
+=head2 $st->apply_tag( $e, $name, $value )
+
+Alternatively, an existing extent object can be passed as the first argument
+instead of two integers. The new tag will apply at the given extent.
+
 =cut
 
 sub apply_tag
 {
    my $self = shift;
-   my ( $start, $len, $name, $value ) = @_;
-
-   my $strlen = $self->length;
-
+   my ( $start, $end );
    my $flags = 0;
 
-   if( $start < 0 ) {
-      $start = 0;
-      $flags |= FLAG_ANCHOR_BEFORE;
-   }
+   if( blessed $_[0] ) {
+      my $e = shift;
+      $start = $e->start;
+      $end   = $e->end;
 
-   my $end;
-   if( $len == -1 ) {
-      $end = $strlen;
-      $flags |= FLAG_ANCHOR_AFTER;
+      $flags |= FLAG_ANCHOR_BEFORE if $e->anchor_before;
+      $flags |= FLAG_ANCHOR_AFTER  if $e->anchor_after;
    }
    else {
-      $end = $start + $len;
-      $end = $strlen if $end > $strlen;
+      $start = shift;
+      my $len = shift;
+
+      my $strlen = $self->length;
+
+      if( $start < 0 ) {
+         $start = 0;
+         $flags |= FLAG_ANCHOR_BEFORE;
+      }
+
+      if( $len == -1 ) {
+         $end = $strlen;
+         $flags |= FLAG_ANCHOR_AFTER;
+      }
+      else {
+         $end = $start + $len;
+         $end = $strlen if $end > $strlen;
+      }
    }
+
+   my ( $name, $value ) = @_;
 
    $self->_insert_tag( $start, $end, $name, $value, $flags );
 
@@ -435,9 +536,20 @@ sub apply_tag
 sub _remove_tag
 {
    my $self = shift;
-   my ( $start, $len, $name, $keepends ) = @_;
+   my $keepends = shift;
+   my ( $start, $end );
 
-   my $end = $start + $len;
+   if( blessed $_[0] ) {
+      my $e = shift;
+      $start = $e->start;
+      $end   = $e->end;
+   }
+   else {
+      $start = shift;
+      $end = $start + shift;
+   }
+
+   my ( $name ) = @_;
 
    my $tags = $self->{tags};
 
@@ -471,6 +583,8 @@ sub _remove_tag
    if( DEBUG && $have_added ) {
       $self->_assert_sorted;
    }
+
+   return $self;
 }
 
 =head2 $st->unapply_tag( $start, $len, $name )
@@ -480,14 +594,17 @@ this extent, then any partial fragment of the tag will be left in the string.
 
 This method returns the C<$st> object.
 
+=head2 $st->unapply_tag( $e, $name )
+
+Alternatively, an existing extent object can be passed as the first argument
+instead of two integers.
+
 =cut
 
 sub unapply_tag
 {
    my $self = shift;
-   my ( $start, $len, $name ) = @_;
-   $self->_remove_tag( $start, $len, $name, 1 );
-   return $self;
+   return $self->_remove_tag( 1, @_ );
 }
 
 =head2 $st->delete_tag( $start, $len, $name )
@@ -497,14 +614,17 @@ they extend beyond this extent.
 
 This method returns the C<$st> object.
 
+=head2 $st->delete_tag( $e, $name )
+
+Alternatively, an existing extent object can be passed as the first argument
+instead of two integers.
+
 =cut
 
 sub delete_tag
 {
    my $self = shift;
-   my ( $start, $len, $name ) = @_;
-   $self->_remove_tag( $start, $len, $name, 0 );
-   return $self;
+   return $self->_remove_tag( 0, @_ );
 }
 
 =head2 $st->merge_tags( $eqsub )
@@ -1278,6 +1398,42 @@ sub matches
    return @ret;
 }
 
+=head2 @parts = $st->split( $regexp, $limit )
+
+Returns a list of substrings by applying the regexp to the string content;
+similar to the core perl C<split> function. If C<$limit> is supplied, the
+method will stop at that number of elements, returning the entire remainder of
+the input string as the final element. If the C<$regexp> contains a capture
+group then the content of the first one will be added to the return list as
+well.
+
+=cut
+
+sub split
+{
+   my $self = shift;
+   my ( $re, $limit ) = @_;
+
+   my $plain = $self->str;
+
+   my $prev = 0;
+   my @ret;
+   while( $plain =~ m/$re/g ) {
+      push @ret, $self->substr( $prev, $-[0]-$prev );
+      push @ret, $self->substr( $-[1], $+[1]-$-[1] ) if @- > 1;
+
+      $prev = $+[0];
+
+      last if defined $limit and @ret == $limit-1;
+   }
+
+   if( CORE::length $plain > $prev ) {
+      push @ret, $self->substr( $prev, CORE::length( $plain ) - $prev );
+   }
+
+   return @ret;
+}
+
 =head2 $ret = $st->debug_sprintf
 
 Returns a representation of the string data and all the tags, suitable for
@@ -1463,6 +1619,11 @@ sub plain_substr
 There are likely variations on the rules for C<set_substr> that could equally
 apply to some uses of tagged strings. Consider whether the behaviour of
 modification is chosen per-method, per-tag, or per-string.
+
+=item *
+
+Consider how to implement a clone from one tag format to another which wants
+to merge multiple different source tags together into a single new one.
 
 =back
 
