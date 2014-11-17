@@ -238,4 +238,14 @@ is_deeply( \@tags,
            [ [ 0, 6, foo => 1 ] ],
            'tags list from ->new_tagged' );
 
+# get_tag_at (RT100392)
+{
+    my $str = String::Tagged->new( "abcd" );
+    $str->apply_tag( $_, 1, some => 13 ) for 0 .. $str->length - 1;
+
+    my $v = $str->get_tag_at( 2, "some" );
+
+    is( $v, 13, "get_tag_at retrieved value" );
+}
+
 done_testing;

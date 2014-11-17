@@ -1,5 +1,11 @@
 Revision history for String-Tagged
 
+0.12    2014/11/17 16:14:04
+        [BUGFIXES]
+         * Fix for ->get_tag_at ignoring tags in some situations (RT100392)
+         * Fix for ->substr for length of copied tags that start elsewhere
+           than offset 0 in the copied chunk (RT100409)
+
 0.11    2014/11/14 17:40:35
         [CHANGES]
          * Added ->split method

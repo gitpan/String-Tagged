@@ -91,4 +91,20 @@ is_deeply( \@tags,
            ],
            'tags list after prepend substr' );
 
+# ->substr accessor
+{
+   my $str = String::Tagged->new
+      ->append_tagged( "one", one => 1 )
+      ->append       ( " " )
+      ->append_tagged( "two", two => 2 )
+      ->append       ( " rest of the string" );
+
+   my $sub = $str->substr( 3, 9 );
+   is( $sub->str, " two rest", '$sub->str' );
+
+   my $e = $sub->get_tag_extent( 1, "two" );
+   is( $e->start,  1, 'two tag starts at 1' );
+   is( $e->length, 3, 'two tag length is 3' );
+}
+
 done_testing;

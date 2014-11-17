@@ -19,6 +19,20 @@ use String::Tagged;
       '->split returns correct strings' );
 }
 
+# split preserves tags (RT100409)
+{
+   my $str = String::Tagged->new
+      ->append       ( "one " )
+      ->append_tagged( "two", tag => 1 )
+      ->append       ( " three\nfour" );
+
+   my @lines = $str->split( qr/\n/ );
+
+   my $e = $lines[0]->get_tag_extent( index( $str->str, "two" ), "tag" );
+   is( $e->start,  4, '$e->start of copied tag' );
+   is( $e->length, 3, '$e->length of copied tag' );
+}
+
 # split with limit
 {
    my $str = String::Tagged->new( "command with some arguments" );

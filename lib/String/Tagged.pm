@@ -8,7 +8,7 @@ package String::Tagged;
 use strict;
 use warnings;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 use Scalar::Util qw( blessed );
 
@@ -340,7 +340,7 @@ sub substr
       $ts = -1 if $ts < 0    or $tf & FLAG_ANCHOR_BEFORE;
       $te = -1 if $te > $end or $tf & FLAG_ANCHOR_AFTER;
 
-      $ret->apply_tag( $ts, $te, $tn => $tv );
+      $ret->apply_tag( $ts, $te - $ts, $tn => $tv );
    }
 
    return $ret;
@@ -1009,8 +1009,8 @@ sub get_tag_at
    foreach my $t ( @$tags ) {
       my ( $ts, $te, $tn, $tv ) = @$t;
 
-      next if $pos < $ts;
-      last if $pos >= $te;
+      last if $ts >  $pos;
+      next if $te <= $pos;
 
       $value = $tv if $tn eq $name;
    }
